@@ -1,0 +1,20 @@
+{
+  "name": "mias-mammography-api",
+  "version": "1.0.0",
+  "description": "Backend API (Node.js/Express) para el sistema de prediccion de mamografias MIAS",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=18.17.0"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1"
+  }
+}
