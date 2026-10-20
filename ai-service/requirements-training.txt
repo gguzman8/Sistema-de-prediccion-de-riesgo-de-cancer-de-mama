@@ -1,0 +1,3 @@
+# Dependencias EXCLUSIVAS de entrenamiento (no necesarias para el servicio web).
+imbalanced-learn>=0.12,<1
+kagglehub>=0.3.4,<1

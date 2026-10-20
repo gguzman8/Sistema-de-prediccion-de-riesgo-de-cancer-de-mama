@@ -1,0 +1,6 @@
+<svg width="160" height="40" viewBox="0 0 160 40" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mamopredic">
+  <rect x="0" y="4" width="32" height="32" rx="8" fill="#2563eb"/>
+  <path d="M16 10 v20 M6 20 h20" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+  <text x="42" y="22" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700" fill="#ffffff">Mamopredic</text>
+  <text x="42" y="34" font-family="Segoe UI, Arial, sans-serif" font-size="10" fill="#9fb3d9" letter-spacing="1.5">PREDICCIÓN MAMOGRAFÍAS</text>
+</svg>

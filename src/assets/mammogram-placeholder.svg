@@ -1,0 +1,19 @@
+<svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mamografía (placeholder)">
+  <defs>
+    <radialGradient id="scan" cx="0.5" cy="0.45" r="0.6">
+      <stop offset="0" stop-color="#3a3a3a"/>
+      <stop offset="0.7" stop-color="#565656"/>
+      <stop offset="1" stop-color="#717171"/>
+    </radialGradient>
+  </defs>
+  <rect width="120" height="120" fill="#1f2430"/>
+  <g fill="url(#scan)" opacity="0.92">
+    <path d="M30 120 C22 78 42 58 54 52 C78 40 96 56 98 90 C80 108 52 120 30 120 Z"/>
+    <path d="M26 120 C20 88 40 66 54 60 C34 60 20 82 20 108 C20 114 22 118 26 120 Z" fill="#4a4a4a"/>
+  </g>
+  <g stroke="#93c5fd" stroke-width="1.5" fill="none" opacity="0.55">
+    <path d="M22 40 L98 118"/>
+    <path d="M34 28 L108 100"/>
+    <path d="M12 18 L44 44"/>
+  </g>
+</svg>

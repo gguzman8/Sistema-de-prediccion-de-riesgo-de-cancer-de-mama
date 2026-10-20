@@ -1,93 +1,37 @@
-import io
+"""Caracteristicas del modelo definitivo.
 
-import numpy as np
-from PIL import Image
-from skimage.feature import graycomatrix, graycoprops
+El modelo final entrena con metadatos de la lesion, NO con los pixeles de la
+mamografia (ver `training/train_model.py` y `models/model_metadata.json`):
 
-from .config import settings
+    X, Y, RADIUS   coordenadas y tamano de la anomalia (en coordenadas MIAS)
+    BG_F, BG_G     densidad glandular one-hot (BG_D es la referencia)
+"""
 
-# Feature names exactos del df_processed del notebook (mismo orden).
+# Feature names exactos del pipeline exportado (mismo orden que en training).
 FEATURE_ORDER = [
     "X",
     "Y",
     "RADIUS",
-    "img_mean",
-    "img_std",
-    "img_min",
-    "img_max",
-    "img_median",
-    "glcm_contrast",
-    "glcm_energy",
-    "glcm_homogeneity",
-    "glcm_correlation",
-    "glcm_dissimilarity",
-    "has_lesion",
-    "BG_D",
     "BG_F",
     "BG_G",
 ]
 
-IMAGE_FEATURE_COLUMNS = [
-    "img_mean",
-    "img_std",
-    "img_min",
-    "img_max",
-    "img_median",
-    "glcm_contrast",
-    "glcm_energy",
-    "glcm_homogeneity",
-    "glcm_correlation",
-    "glcm_dissimilarity",
-]
+# Clases internas del modelo (espanol, como se entreno) -> clases publicas API.
+CLASS_ES = ["NORMAL", "BENIGNO", "MALIGNO"]
+CLASS_EN = {
+    "NORMAL": "Normal",
+    "BENIGNO": "Benign",
+    "MALIGNO": "Malignant",
+}
 
 MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024
 
 
-class ImagePreprocessingError(Exception):
-    pass
-
-
-def preprocess_image(image_bytes: bytes) -> np.ndarray | None:
-    """
-    Replica 'preprocess_image' del notebook:
-    convierte a escala de grises, redimensiona a 128x128 y normaliza a [0, 1].
-    """
-    try:
-        with Image.open(io.BytesIO(image_bytes)) as img:
-            img = img.convert("L")
-            img = img.resize(settings.image_size)
-            img_array = np.array(img) / 255.0
-        return img_array
-    except Exception:
-        return None
-
-
-def extract_image_features(img_array: np.ndarray | None) -> np.ndarray:
-    """
-    Replica 'extract_image_features' del notebook:
-    estadisticas globales (5) + textura GLCM (5) = 10 características.
-    """
-    if img_array is None:
-        return np.full(10, np.nan)
-
-    features = [
-        np.mean(img_array),
-        np.std(img_array),
-        np.min(img_array),
-        np.max(img_array),
-        np.median(img_array),
-    ]
-
-    img_256 = (img_array * 255).astype(np.uint8)
-
-    try:
-        glcm = graycomatrix(img_256, [1], [0], levels=256, symmetric=True, normed=True)
-        features.append(graycoprops(glcm, "contrast")[0, 0])
-        features.append(graycoprops(glcm, "energy")[0, 0])
-        features.append(graycoprops(glcm, "homogeneity")[0, 0])
-        features.append(graycoprops(glcm, "correlation")[0, 0])
-        features.append(graycoprops(glcm, "dissimilarity")[0, 0])
-    except ValueError:
-        features.extend(np.full(5, np.nan))
-
-    return np.array(features, dtype=float)
+def encode_bg(bg_type: str) -> list[float]:
+    """Codifica BG (D/F/G) en las columnas one-hot BG_F, BG_G (BG_D = referencia)."""
+    bg_type = bg_type.upper()
+    if bg_type == "F":
+        return [1.0, 0.0]
+    if bg_type == "G":
+        return [0.0, 1.0]
+    return [0.0, 0.0]

@@ -1,9 +1,8 @@
 import joblib
-import numpy as np
 import pandas as pd
 
 from .config import settings
-from .features import FEATURE_ORDER, extract_image_features, preprocess_image
+from .features import CLASS_EN, CLASS_ES, FEATURE_ORDER, encode_bg
 
 
 class PredictorError(Exception):
@@ -11,55 +10,46 @@ class PredictorError(Exception):
 
 
 class Predictor:
-    """Carga el modelo entrenado y el LabelEncoder, y ejecuta la prediccion.
+    """Carga el modelo de metadatos MIAS y ejecuta la prediccion.
 
-    Espera en `models/` los archivos generados en Google Colab:
-      - model.pkl             Pipeline estandar (StandardScaler + RandomForest)
-      - label_encoder.pkl     LabelEncoder ajustado sobre y_train
+    Espera en `models/model.pkl` el pipeline de inferencia exportado por
+    `python -m training.train_model` (SimpleImputer + RandomForest). Las
+    clases internas del modelo son espanol (NORMAL/BENIGNO/MALIGNO) y se
+    traducen al ingles para mantener el contrato de la API.
     """
 
     def __init__(self) -> None:
         self.model = None
-        self.label_encoder = None
 
     # ------------------------------------------------------------------ carga
     def load(self) -> None:
         if not settings.model_path.exists():
             raise PredictorError(
                 f"No se encontro el modelo en {settings.model_path}. "
-                "Entrena el modelo en Colab y coloca 'model.pkl' en la carpeta models/."
-            )
-        if not settings.label_encoder_path.exists():
-            raise PredictorError(
-                f"No se encontro el LabelEncoder en {settings.label_encoder_path}. "
-                "Entrena el modelo en Colab y coloca 'label_encoder.pkl' en la carpeta models/."
+                "Ejecuta 'python -m training.train_model' o reemplaza models/model.pkl."
             )
         self.model = joblib.load(settings.model_path)
-        self.label_encoder = joblib.load(settings.label_encoder_path)
 
     def _ensure_loaded(self) -> None:
-        if self.model is None or self.label_encoder is None:
+        if self.model is None:
             self.load()
 
     @property
     def is_loaded(self) -> bool:
-        return self.model is not None and self.label_encoder is not None
+        return self.model is not None
 
     @property
     def classes(self) -> list[str]:
         if not self.is_loaded:
             return []
-        raw_classes = np.asarray(self.model.classes_)
-        if np.issubdtype(raw_classes.dtype, np.number):
-            return list(self.label_encoder.classes_)
-        return [str(c) for c in raw_classes]
+        return [CLASS_EN[c] for c in self.model.classes_]
 
     @property
     def malignant_index(self) -> int:
-        matches = np.where(self.label_encoder.classes_ == "Malignant")[0]
+        matches = [i for i, c in enumerate(self.model.classes_) if c == "MALIGNO"]
         if len(matches) == 0:
-            raise PredictorError("La clase 'Malignant' no existe en el LabelEncoder.")
-        return int(matches[0])
+            raise PredictorError("La clase 'MALIGNO' no existe en el modelo.")
+        return matches[0]
 
     # ------------------------------------------------------------- clasificacion
     def classify_risk(self, prob_malignidad: float) -> str:
@@ -76,40 +66,23 @@ class Predictor:
     def predict(self, image_bytes: bytes, x: float, y: float, radius: float, bg_type: str) -> dict:
         self._ensure_loaded()
 
-        img_array = preprocess_image(image_bytes)
-        if img_array is None:
-            raise PredictorError("No se pudo procesar la imagen subida.")
-
-        image_features = extract_image_features(img_array)
-
-        bgs = {"D": 0, "F": 0, "G": 0}
-        bgs[bg_type] = 1
-
-        has_lesion = 1 if (x != 0 or y != 0 or radius != 0) else 0
-        row = [x, y, radius] + list(image_features) + [has_lesion, bgs["D"], bgs["F"], bgs["G"]]
-
+        bg_f, bg_g = encode_bg(bg_type)
+        row = [x, y, radius, bg_f, bg_g]
         instance_df = pd.DataFrame([row], columns=FEATURE_ORDER)
 
         probas = self.model.predict_proba(instance_df)[0].astype(float)
-        pred_encoded = int(self.model.predict(instance_df)[0])
+        pred = str(self.model.predict(instance_df)[0])
 
-        raw_classes = np.asarray(self.model.classes_)
-        if np.issubdtype(raw_classes.dtype, np.number):
-            predicted_class = str(self.label_encoder.inverse_transform([pred_encoded])[0])
-            probability_classes = [str(c) for c in self.label_encoder.classes_]
-        else:
-            predicted_class = str(raw_classes[pred_encoded])
-            probability_classes = [str(c) for c in raw_classes]
-
+        class_order = [str(c) for c in self.model.classes_]
         probabilities = {
-            cls: float(prob)
-            for cls, prob in zip(probability_classes, probas)
+            CLASS_EN[cls]: float(prob)
+            for cls, prob in zip(class_order, probas)
         }
 
         prob_malignidad = float(probas[self.malignant_index])
 
         return {
-            "predicted_class": predicted_class,
+            "predicted_class": CLASS_EN[pred],
             "probabilities": probabilities,
             "malignancy_probability": round(prob_malignidad, 6),
             "risk_level": self.classify_risk(prob_malignidad),

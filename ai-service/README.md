@@ -1,9 +1,10 @@
 # Servicio de IA - Prediccion de Mamografias (MIAS)
 
-Backend en **Python / FastAPI** que replica el pipeline del notebook de Colab
-(`miasMammography.ipynb`): extrae características de la mamografía (estadísticas
-globales + textura GLCM) y clasifica la severidad con el modelo Random Forest
-entrenado. Node.js lo consume reenviándole imagen y metadatos.
+Backend en **Python / FastAPI** que clasifica la severidad con un Random Forest
+entrenado sobre los **metadatos de la lesion** del dataset MIAS. El modelo NO
+analiza los pixeles de la mamografia: predice a partir de la ubicacion, el
+tamano de la anomalia y la densidad glandular. Node.js lo consume reenviandole
+imagen y metadatos.
 
 ## Requisitos
 
@@ -21,29 +22,22 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 ## Modelo
 
-El servicio carga dos archivos desde `models/`:
+El servicio carga `models/model.pkl`: un pipeline de scikit-learn
+(`SimpleImputer` + `RandomForestClassifier`) entrenado y exportado por el
+flujo reproducible en `training/train_model.py`.
 
-| Archivo            | Contenido                                                        |
-|--------------------|------------------------------------------------------------------|
-| `model.pkl`        | Pipeline de scikit-learn (StandardScaler + RandomForestClassifier) |
-| `label_encoder.pkl`| `LabelEncoder` ajustado sobre `y_train`                          |
+Para reentrenar (descarga el dataset MIAS automaticamente):
 
-Exportalos desde Google Colab (al final del notebook):
-
-```python
-import joblib
-joblib.dump(best_model, 'model.pkl')
-joblib.dump(le, 'label_encoder.pkl')
-from google.colab import files
-files.download('model.pkl')
-files.download('label_encoder.pkl')
+```bash
+pip install -r requirements-training.txt
+python -m training.train_model
 ```
 
-Despues colocalos en `ai-service/models/`.
-
-> **Estado actual:** hay un modelo de prueba (placeholder) generado con
-> `python -m app.generate_placeholder_model` para verificar el flujo completo.
-> Reemplazalo con el modelo real entrenado en Colab.
+El script corrige las inconsistencias de `modeloChecar.ipynb`, consolida
+imagenes con varias lesiones (conserva la de mayor severidad), selecciona los
+hiperparametros priorizando la sensibilidad de `MALIGNO` y evalúa el test una
+sola vez. Los resultados quedan en `models/model_metadata.json` y
+`training/outputs/test_metrics.json`.
 
 ## Endpoints
 
@@ -59,7 +53,7 @@ Formato `multipart/form-data`:
 
 | Campo     | Tipo    | Descripción                                      |
 |-----------|---------|--------------------------------------------------|
-| `image`   | archivo | Mamografía PNG/JPEG/BMP/TIFF                     |
+| `image`   | archivo | Mamografía PNG/JPEG (se conserva como registro)  |
 | `x`       | float   | Coordenada X de la lesión (0 si no hay lesión)  |
 | `y`       | float   | Coordenada Y de la lesión (0 si no hay lesión)  |
 | `radius`  | float   | Radio de la lesión (0 si no hay lesión)         |
@@ -80,24 +74,21 @@ Formato `multipart/form-data`:
 >= 0.70 `ALTO RIESGO`, >= 0.30 `RIESGO MEDIO`, >= 0.10 `BAJO RIESGO`,
 en otro caso `RIESGO MUY BAJO` (configurables por entorno, ver `app/config.py`).
 
-## Replicacion del notebook
-
-- `app/features.py` -> `preprocess_image` y `extract_image_features` (celda `d8a75a02`).
-- `app/predictor.py` -> carga del modelo, `predict_proba`, `classify_risk` (funcion `predict_mammogram` y `classify_risk`).
-- El orden exacto de las 17 características se conserva en `FEATURE_ORDER` para que
-  coincida con el `X_train` del notebook.
-
 ## Estructura
 
 ```
 ai-service/
 ├── app/
 │   ├── main.py                        # FastAPI: /health y /predict
-│   ├── config.py                      # Rutas del modelo y umbrales
-│   ├── features.py                    # Preprocesamiento y extraccion de características
+│   ├── config.py                      # Ruta del modelo y umbrales
+│   ├── features.py                    # Caracteristicas (X, Y, RADIUS, BG) y clases
 │   ├── predictor.py                   # Carga del modelo y prediccion
 │   ├── schemas.py                     # Modelos de respuesta Pydantic
 │   └── generate_placeholder_model.py  # Modelo de prueba (NO usar en produccion)
-├── models/                            # model.pkl + label_encoder.pkl
-└── requirements.txt
+├── training/
+│   ├── train_model.py                 # Entrenamiento reproducible + export
+│   └── outputs/                       # Metricas del conjunto de prueba
+├── models/                            # model.pkl + model_metadata.json
+├── requirements.txt                   # Dependencias de inferencia
+└── requirements-training.txt          # Dependencias de entrenamiento
 ```

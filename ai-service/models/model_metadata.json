@@ -1,0 +1,103 @@
+{
+  "dataset": "orvile/mias-dataset",
+  "created_at": "2026-09-15T00:01:06.728124",
+  "selection": "ref1",
+  "hyperparameters": {
+    "name": "ref1",
+    "classifier__n_estimators": 300,
+    "classifier__max_depth": null,
+    "classifier__min_samples_split": 2,
+    "classifier__min_samples_leaf": 1,
+    "classifier__max_features": "sqrt",
+    "classifier__class_weight": "balanced"
+  },
+  "cv_metrics": {
+    "recall_maligno": 0.4833333333333334,
+    "f1_macro": 0.6624980880094864,
+    "balanced_accuracy": 0.6677777777777778
+  },
+  "test_metrics": {
+    "accuracy": 0.8307692307692308,
+    "balanced_accuracy": 0.6717948717948717,
+    "precision_macro": 0.671957671957672,
+    "recall_macro": 0.6717948717948717,
+    "f1_macro": 0.6712150747238467,
+    "precision_NORMAL": 1.0,
+    "recall_NORMAL": 1.0,
+    "f1_NORMAL": 1.0,
+    "support_NORMAL": 42,
+    "specificity_NORMAL": 1.0,
+    "precision_BENIGNO": 0.5714285714285714,
+    "recall_BENIGNO": 0.6153846153846154,
+    "f1_BENIGNO": 0.5925925925925926,
+    "support_BENIGNO": 13,
+    "specificity_BENIGNO": 0.8846153846153846,
+    "precision_MALIGNO": 0.4444444444444444,
+    "recall_MALIGNO": 0.4,
+    "f1_MALIGNO": 0.42105263157894735,
+    "support_MALIGNO": 10,
+    "specificity_MALIGNO": 0.9090909090909091,
+    "roc_auc_macro": 0.9225658956428188,
+    "confusion_matrix": {
+      "labels": [
+        "NORMAL",
+        "BENIGNO",
+        "MALIGNO"
+      ],
+      "matrix": [
+        [
+          42,
+          0,
+          0
+        ],
+        [
+          0,
+          8,
+          5
+        ],
+        [
+          0,
+          6,
+          4
+        ]
+      ]
+    }
+  },
+  "feature_order": [
+    "X",
+    "Y",
+    "RADIUS",
+    "BG_F",
+    "BG_G"
+  ],
+  "classes": [
+    "NORMAL",
+    "BENIGNO",
+    "MALIGNO"
+  ],
+  "classes_en": {
+    "NORMAL": "Normal",
+    "BENIGNO": "Benign",
+    "MALIGNO": "Malignant"
+  },
+  "class_distribution": {
+    "NORMAL": 207,
+    "BENIGNO": 63,
+    "MALIGNO": 52
+  },
+  "train_size": 257,
+  "test_size": 65,
+  "test_distribution": {
+    "NORMAL": 42,
+    "BENIGNO": 13,
+    "MALIGNO": 10
+  },
+  "feature_importance": {
+    "X": 0.2747297455144561,
+    "Y": 0.29565877754015235,
+    "RADIUS": 0.29828358610369426,
+    "BG_F": 0.05696119277284122,
+    "BG_G": 0.07436669806885601
+  },
+  "notes": "Modelo basado en metadatos de la lesion (X, Y, RADIUS) y densidad glandular (BG). NO analiza los pixeles de la mamografia."
+}
