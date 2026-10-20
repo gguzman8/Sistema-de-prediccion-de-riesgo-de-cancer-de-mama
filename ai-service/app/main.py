@@ -1,10 +1,10 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, UploadFile
 
 from .config import settings
-from .predictor import Predictor, PredictorError
+from .predictor import InvalidImageError, Predictor, PredictorError
 from .schemas import HealthResponse, PredictionResponse
 
 logger = logging.getLogger("ai-service")
@@ -24,9 +24,9 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(
-    title="Servicio de IA - Mamografias MIAS",
-    description="Clasifica mamografias (Normal / Benign / Malignant) y asigna nivel de riesgo.",
-    version="1.0.0",
+    title="Servicio de IA - Clasificacion de mamografias",
+    description="Clasifica imagenes con YOLOv8 (Normal / Benign / Malignant) y asigna nivel de riesgo.",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -43,10 +43,6 @@ def health() -> HealthResponse:
 @app.post("/predict", response_model=PredictionResponse)
 async def predict(
     image: UploadFile = File(...),
-    x: float = Form(...),
-    y: float = Form(...),
-    radius: float = Form(...),
-    bg_type: str = Form(...),
 ) -> PredictionResponse:
     if not predictor.is_loaded:
         try:
@@ -54,24 +50,22 @@ async def predict(
         except PredictorError as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
 
-    bg_type = bg_type.strip().upper()
-    if bg_type not in ("D", "F", "G"):
+    if image.content_type not in {"image/png", "image/jpeg", "image/bmp", "image/tiff"}:
         raise HTTPException(
-            status_code=422,
-            detail="El campo bg_type debe ser 'D', 'F' o 'G'.",
+            status_code=415,
+            detail="Formato no soportado. Usa PNG, JPEG, BMP o TIFF.",
         )
 
-    if x < 0 or y < 0 or radius < 0:
-        raise HTTPException(
-            status_code=422,
-            detail="x, y y radius no pueden ser negativos.",
-        )
-
-    image_bytes = await image.read()
+    image_bytes = await image.read(settings.max_file_size_bytes + 1)
     if not image_bytes:
         raise HTTPException(status_code=422, detail="La imagen esta vacia.")
+    if len(image_bytes) > settings.max_file_size_bytes:
+        raise HTTPException(status_code=413, detail="La imagen supera el tamano maximo permitido.")
 
     try:
-        return PredictionResponse(**predictor.predict(image_bytes, x, y, radius, bg_type))
-    except PredictorError as exc:
+        return PredictionResponse(**predictor.predict(image_bytes))
+    except InvalidImageError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except PredictorError as exc:
+        logger.exception("La inferencia YOLO fallo")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc

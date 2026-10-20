@@ -1,98 +1,86 @@
-# Sistema de Prediccion de Mamografias (MIAS)
+# Sistema de Clasificacion de Mamografias
 
-Tesis de clasificación de mamografías (Normal / Benign / Malignant) con Random Forest
-en entrenamiento; **inferencia basada en metadatos de la lesión** del dataset MIAS
-(X, Y, RADIUS y densidad glandular), no en los píxeles de la imagen. Incluye el
-frontend **React** construido a partir del prototipo del sistema.
+Aplicacion de tesis para clasificar imagenes mamograficas como `Normal`, `Benign`
+o `Malignant` con un clasificador YOLOv8. La imagen es la unica entrada del modelo;
+no se solicitan coordenadas, radio de lesion ni densidad glandular.
+
+El modelo entrenado se encuentra en `ai-service/models/best.pt`.
 
 ## Arquitectura
 
-```
-Cliente (React)  ──>  api/ (Node.js + Express)  ──>  ai-service/ (Python + FastAPI)
-                             │                            │
-                             └── recibe imagen+metadatos   └── predice con el modelo (RandomForest)
-                             └── valida la entrada           └── inputs: X, Y, RADIUS, BG (D/F/G)
-                             └── reenvía al servicio IA      └── calcula riesgo (umbrales de malignidad)
+```text
+React :5173 -> Node.js/Express :3000 -> Python/FastAPI + YOLOv8 :8000
 ```
 
-## Servicios
-
-| Carpeta           | Tecnología            | Rol                                                        | Puerto |
-|-------------------|-----------------------|------------------------------------------------------------|--------|
-| raíz (frontend)   | React + JS + Vite     | Interfaz del prototipo (Dashboard, Mamografías, Pacientes) | 5173   |
-| `api/`            | Node/Express          | API principal consumida por el cliente                     | 3000   |
-| `ai-service/`     | Python/FastAPI        | Inferencia del modelo (metadatos MIAS)                     | 8000   |
+| Carpeta | Tecnologia | Rol |
+|---|---|---|
+| raiz | React + Vite | Interfaz, carga de imagen y resultados |
+| `api/` | Node.js + Express | Validacion de subida y API publica |
+| `ai-service/` | Python + FastAPI | Decodificacion e inferencia YOLOv8 |
 
 ## Ejecucion
 
 ```bash
-# 1. Servicio Python de IA
+# 1. Servicio de IA
 cd ai-service
+python3 -m venv .venv
 source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
 uvicorn app.main:app --port 8000
 
-# 2. API Node (otra terminal)
+# 2. API Node, en otra terminal
 cd api
 cp .env.example .env
 npm install
 npm run dev
 
-# 3. Frontend React (otra terminal, en la raíz del proyecto)
+# 3. Frontend, en otra terminal desde la raiz
 npm install
-npm run dev          # http://localhost:5173
+npm run dev
 ```
 
-Durante el desarrollo, Vite redirige `/api` a la API de Node (puerto 3000). Si se
-compila para producción y el frontend se sirve desde otro origen, definir
-`VITE_API_URL` a la URL de la API antes de `npm run build` (ver `.env.example`).
+Vite redirige `/api` a Node durante desarrollo. En produccion se puede definir
+`VITE_API_URL` antes de ejecutar `npm run build`.
 
-Ver `api/README.md` (contrato de la API) y `ai-service/README.md` (modelo y endpoints internos).
+## Modelo esperado
 
-## Frontend (React)
+`best.pt` debe ser un modelo Ultralytics de clasificacion, no de deteccion, y
+contener exactamente estas clases (sin distinguir mayusculas):
 
-Replica el prototipo del sistema. Pantallas: **Dashboard** (cola de revisión y caso
-destacado), **Mamografías** (búsqueda, filtros, orden, guardadas y paginación),
-**Pacientes** (listado, registro y detalle), **Configuración**, **Revisión** (carga
-de imagen + parámetros) y **Resultado** (clase, probabilidades y nivel de riesgo).
-
-- Los pacientes, mamografías y estudios guardados son datos simulados en el navegador
-  (se pierden al recargar la página).
-- La única operación conectada al backend es la **predicción**: la pantalla de
-  revisión envía `multipart/form-data` a `POST /api/v1/predictions`.
-- Diseño responsivo (escritorio/tablet/móvil) con menú lateral colapsable.
-
-Estructura:
-
-```
-src/
-├── main.jsx / App.jsx        # Punto de entrada y rutas
-├── index.css                 # Tokens de diseño y estilos (CSS puro)
-├── components/               # Sidebar, Header, tarjetas, paginación, modales, iconos
-├── context/DataContext.jsx   # Datos simulados (pacientes, mamografías, guardados)
-├── pages/                    # Dashboard, Mamografías, Pacientes, Detalle, Revisión, Resultado, Configuración
-├── services/api.js           # Cliente HTTP hacia la API de predicción
-└── utils/formatters.js       # Formato de fechas, riesgo y probabilidades
+```text
+normal
+benign
+malignant
 ```
 
-## Estado del modelo
+El servicio rechaza modelos incompletos o con otras clases. El peso original de
+`yolOriginal.ipynb` tenia solo la clase `benign`; fue sustituido por un modelo
+entrenado con las imagenes y anotaciones de `orvile/mias-dataset`.
 
-El modelo fue entrenado con el dataset **MIAS** (`orvile/mias-dataset`) mediante el
-flujo reproducible `ai-service/training/train_model.py`, que descarga el dataset,
-consolida imágenes duplicadas (conserva la lesión de mayor severidad), selecciona
-hiperparámetros priorizando la sensibilidad de `MALIGNO` y evalúa el conjunto de
-prueba una sola vez. Resultado exportado en `ai-service/models/model.pkl`.
+El entrenamiento reproducible esta en `ai-service/training/train_yolo.py`. Divide
+por paciente, sobremuestrea solo el conjunto de entrenamiento y selecciona entre
+los checkpoints `best` y `last` mediante F1 macro de validacion.
 
-Métricas sobre el conjunto de prueba (65 estudios: 42 NORMAL, 13 BENIGNO, 10 MALIGNO):
+```bash
+cd ai-service
+source .venv/bin/activate
+pip install -r requirements-training.txt
+python -m training.train_yolo
+```
 
-| Métrica                        | Valor  |
-|--------------------------------|--------|
-| Accuracy                       | 83.08 % |
-| Balanced accuracy              | 67.18 % |
-| F1 macro                       | 67.12 % |
-| ROC-AUC macro                  | 92.26 % |
-| Recall / Precisión MALIGNO     | 40 % / 44.44 % |
-| Recall NORMAL                  | 100 %  |
+Metricas del conjunto de prueba reservado (50 imagenes): accuracy `54.0%`,
+balanced accuracy `45.8%`, F1 macro `45.8%` y recall maligno `37.5%`. Son
+resultados experimentales de un dataset pequeno; el modelo sirve para la tesis y
+el prototipo, pero no esta validado para uso clinico.
 
-Detalle completo en `ai-service/models/model_metadata.json` y
-`ai-service/training/outputs/test_metrics.json`. La imagen se conserva como registro
-clínico, pero la predicción usa únicamente los metadatos de la lesión.
+## Datos del prototipo
+
+Pacientes, historial y mamografias de ejemplo se mantienen solo en memoria en el
+navegador. La unica operacion conectada a los backends es la prediccion.
+
+`modeloChecar.ipynb` y `miasMammography.ipynb` se conservan exclusivamente como
+archivo historico de los modelos Random Forest retirados. No forman parte del
+runtime ni del proceso de instalacion.
+
+Consulta `api/README.md` y `ai-service/README.md` para los contratos HTTP.

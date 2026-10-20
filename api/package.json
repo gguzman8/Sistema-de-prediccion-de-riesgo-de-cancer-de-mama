@@ -1,12 +1,13 @@
 {
-  "name": "mias-mammography-api",
+  "name": "mamopredic-yolo-api",
   "version": "1.0.0",
-  "description": "Backend API (Node.js/Express) para el sistema de prediccion de mamografias MIAS",
+  "description": "Backend API para clasificacion de mamografias con YOLOv8",
   "main": "src/server.js",
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "node --watch src/server.js"
+    "dev": "node --watch src/server.js",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=18.17.0"

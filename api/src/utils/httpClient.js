@@ -66,11 +66,16 @@ export async function request(url, { method = 'GET', body, headers = {}, timeout
 
 export async function healthCheck(baseUrl, { timeoutMs = 3000 } = {}) {
   try {
-    const { status } = await request(`${baseUrl}/health`, {
+    const { status, data } = await request(`${baseUrl}/health`, {
       timeoutMs,
       headers: { Accept: 'application/json' },
     });
-    return { status: 'ok', code: status };
+    return {
+      status: data?.model_loaded === false ? 'model_unavailable' : 'ok',
+      code: status,
+      modelLoaded: data?.model_loaded ?? null,
+      classes: data?.classes ?? null,
+    };
   } catch (error) {
     logger.warn('Health check del servicio de IA fallo', {
       error: error.message,

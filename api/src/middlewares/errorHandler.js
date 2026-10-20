@@ -28,11 +28,19 @@ export function errorHandler(error, req, res, next) {
   }
 
   if (error instanceof HttpError) {
-    const status = error.status || 502;
-    const code = error.status === 503 ? 'AI_SERVICE_UNAVAILABLE'
-      : error.status === 504 ? 'AI_SERVICE_TIMEOUT'
-      : 'AI_SERVICE_ERROR';
-    return res.status(status).json({ error: { code, message: error.message } });
+    const upstreamMessage = error.responseBody?.detail;
+    const message = typeof upstreamMessage === 'string' ? upstreamMessage : error.message;
+
+    if ([413, 415, 422].includes(error.status)) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message } });
+    }
+    if (error.status === 503) {
+      return res.status(503).json({ error: { code: 'AI_SERVICE_UNAVAILABLE', message } });
+    }
+    if (error.status === 504) {
+      return res.status(504).json({ error: { code: 'AI_SERVICE_TIMEOUT', message } });
+    }
+    return res.status(502).json({ error: { code: 'AI_SERVICE_ERROR', message } });
   }
 
   logger.error('Error no controlado', { error: error.message, stack: error.stack });

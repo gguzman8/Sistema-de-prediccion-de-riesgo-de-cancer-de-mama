@@ -1,3 +1,4 @@
-# Dependencias EXCLUSIVAS de entrenamiento (no necesarias para el servicio web).
-imbalanced-learn>=0.12,<1
-kagglehub>=0.3.4,<1
+-r requirements.txt
+kagglehub>=0.3,<2
+pandas>=2.0,<3
+scikit-learn>=1.4,<2

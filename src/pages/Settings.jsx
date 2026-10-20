@@ -93,10 +93,9 @@ export default function Settings() {
               <div>
                 <h3 style={{ fontSize: 15, marginBottom: 6 }}>Acerca del sistema</h3>
                 <p style={{ margin: 0, color: 'var(--text-muted)', lineHeight: 1.7 }}>
-                  Mamopredic clasifica mamografías del dataset MIAS en{' '}
+                  Mamopredic clasifica imágenes mamográficas en{' '}
                   <strong>Normal</strong>, <strong>Benigno</strong> o <strong>Maligno</strong> usando un
-                  modelo Random Forest basado en los metadatos de la lesión (ubicación, tamaño y densidad
-                  glandular), no en los píxeles de la imagen. Su propósito es asistir a los
+                  modelo YOLOv8 que analiza directamente los píxeles de la imagen. Su propósito es asistir a los
                   especialistas y priorizar los casos de mayor urgencia.</p>
               </div>
             </div>

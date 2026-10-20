@@ -1,7 +1,7 @@
 {
   "name": "mamopredic-frontend",
   "version": "1.0.0",
-  "description": "Frontend React del sistema de prediccion de mamografias (MIAS)",
+  "description": "Frontend React del sistema de clasificacion de mamografias con YOLOv8",
   "private": true,
   "type": "module",
   "scripts": {

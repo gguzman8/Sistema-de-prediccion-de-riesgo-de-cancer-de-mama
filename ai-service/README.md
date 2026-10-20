@@ -1,65 +1,62 @@
-# Servicio de IA - Prediccion de Mamografias (MIAS)
+# Servicio de IA YOLOv8
 
-Backend en **Python / FastAPI** que clasifica la severidad con un Random Forest
-entrenado sobre los **metadatos de la lesion** del dataset MIAS. El modelo NO
-analiza los pixeles de la mamografia: predice a partir de la ubicacion, el
-tamano de la anomalia y la densidad glandular. Node.js lo consume reenviandole
-imagen y metadatos.
+Servicio interno FastAPI que clasifica directamente una imagen mamografica como
+`Normal`, `Benign` o `Malignant` mediante Ultralytics YOLOv8 Classification.
 
-## Requisitos
-
-- Python >= 3.10
-
-## Instalacion y ejecucion
+## Instalacion
 
 ```bash
 cd ai-service
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+cp .env.example .env
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-## Modelo
+## Pesos
 
-El servicio carga `models/model.pkl`: un pipeline de scikit-learn
-(`SimpleImputer` + `RandomForestClassifier`) entrenado y exportado por el
-flujo reproducible en `training/train_model.py`.
+La ruta predeterminada es `models/best.pt` y puede cambiarse con `MODEL_PATH`.
+El archivo incluido contiene `normal`, `benign` y `malignant`; el orden interno
+es indiferente. El servicio valida las clases antes de marcar el modelo como
+cargado.
 
-Para reentrenar (descarga el dataset MIAS automaticamente):
+## Entrenamiento
 
 ```bash
 pip install -r requirements-training.txt
-python -m training.train_model
+python -m training.train_yolo
 ```
 
-El script corrige las inconsistencias de `modeloChecar.ipynb`, consolida
-imagenes con varias lesiones (conserva la de mayor severidad), selecciona los
-hiperparametros priorizando la sensibilidad de `MALIGNO` y evalúa el test una
-sola vez. Los resultados quedan en `models/model_metadata.json` y
-`training/outputs/test_metrics.json`.
+El script descarga `orvile/mias-dataset`, consolida anotaciones por estudio,
+divide por paciente, balancea solo entrenamiento y selecciona el checkpoint por
+F1 macro de validacion. Las metricas y matrices de confusion quedan en
+`models/model_metadata.json`.
+
+Sobre las 50 imagenes reservadas para prueba: accuracy `54.0%`, balanced accuracy
+`45.8%`, F1 macro `45.8%` y recall maligno `37.5%`. Este rendimiento es
+experimental y no constituye validacion clinica.
 
 ## Endpoints
 
 ### `GET /health`
 
+Sin pesos validos:
+
 ```json
-{ "status": "ok", "model_loaded": true, "classes": ["Benign", "Malignant", "Normal"] }
+{ "status": "ok", "model_loaded": false, "classes": null }
+```
+
+Con pesos validos:
+
+```json
+{ "status": "ok", "model_loaded": true, "classes": ["Normal", "Benign", "Malignant"] }
 ```
 
 ### `POST /predict`
 
-Formato `multipart/form-data`:
-
-| Campo     | Tipo    | Descripción                                      |
-|-----------|---------|--------------------------------------------------|
-| `image`   | archivo | Mamografía PNG/JPEG (se conserva como registro)  |
-| `x`       | float   | Coordenada X de la lesión (0 si no hay lesión)  |
-| `y`       | float   | Coordenada Y de la lesión (0 si no hay lesión)  |
-| `radius`  | float   | Radio de la lesión (0 si no hay lesión)         |
-| `bg_type` | string  | Tejido mamario: `D`, `F` o `G`                  |
-
-**Respuesta 200:**
+Recibe `multipart/form-data` con un unico campo obligatorio `image`. Formatos:
+PNG, JPEG, BMP o TIFF. El limite predeterminado es 8 MB.
 
 ```json
 {
@@ -70,25 +67,23 @@ Formato `multipart/form-data`:
 }
 ```
 
-`risk_level` se calcula con los umbrales originales del notebook:
->= 0.70 `ALTO RIESGO`, >= 0.30 `RIESGO MEDIO`, >= 0.10 `BAJO RIESGO`,
-en otro caso `RIESGO MUY BAJO` (configurables por entorno, ver `app/config.py`).
+El riesgo se calcula con la probabilidad `Malignant`: alto desde 0.70, medio
+desde 0.30, bajo desde 0.10 y muy bajo por debajo de 0.10. Los umbrales y el
+limite de archivo se configuran mediante las variables de `.env.example`.
 
 ## Estructura
 
-```
+```text
 ai-service/
 ├── app/
-│   ├── main.py                        # FastAPI: /health y /predict
-│   ├── config.py                      # Ruta del modelo y umbrales
-│   ├── features.py                    # Caracteristicas (X, Y, RADIUS, BG) y clases
-│   ├── predictor.py                   # Carga del modelo y prediccion
-│   ├── schemas.py                     # Modelos de respuesta Pydantic
-│   └── generate_placeholder_model.py  # Modelo de prueba (NO usar en produccion)
-├── training/
-│   ├── train_model.py                 # Entrenamiento reproducible + export
-│   └── outputs/                       # Metricas del conjunto de prueba
-├── models/                            # model.pkl + model_metadata.json
-├── requirements.txt                   # Dependencias de inferencia
-└── requirements-training.txt          # Dependencias de entrenamiento
+│   ├── config.py
+│   ├── main.py
+│   ├── predictor.py
+│   └── schemas.py
+├── models/
+│   ├── best.pt
+│   └── model_metadata.json
+├── training/train_yolo.py
+├── requirements.txt
+└── requirements-training.txt
 ```

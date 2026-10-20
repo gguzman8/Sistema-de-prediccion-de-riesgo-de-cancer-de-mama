@@ -1,12 +1,11 @@
 import config from '../config.js';
-import { validatePredictionInput } from '../validators/predictionValidator.js';
 import * as aiService from './aiService.js';
 
 /**
  * Orquesta una prediccion: valida la entrada, reenvia la imagen al
  * servicio Python de IA y devuelve el resultado listo para el cliente.
  */
-export async function runPrediction(file, body) {
+export async function runPrediction(file) {
   if (!file) {
     const error = new Error('Debe adjuntar una imagen en el campo "image".');
     error.validationError = true;
@@ -21,17 +20,19 @@ export async function runPrediction(file, body) {
     throw error;
   }
 
-  const metadata = validatePredictionInput(body);
-
   const { status, data } = await aiService.predict(file.buffer, {
     filename: file.originalname,
     mimeType: file.mimetype,
-  }, metadata);
+  });
 
   return {
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
-    input: metadata,
+    input: {
+      filename: file.originalname,
+      mimeType: file.mimetype,
+      sizeBytes: file.size,
+    },
     result: data,
     aiServiceStatus: status,
   };

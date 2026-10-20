@@ -19,6 +19,13 @@ function ringParams(malignancyProbability) {
   return { pct, color };
 }
 
+function formatFileSize(sizeBytes) {
+  const bytes = Number(sizeBytes);
+  if (!Number.isFinite(bytes)) return '—';
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function Result() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -80,7 +87,7 @@ export default function Result() {
               Clase predicha: <strong style={{ color: 'var(--text)' }}>{CLASS_LABELS[predictedClass] || predictedClass}</strong>
             </p>
             <p style={{ color: 'var(--text-muted)', margin: 0 }}>
-              Modelo: Random Forest sobre metadatos de la lesión · Dataset MIAS
+              Modelo: YOLOv8 para clasificación de imágenes mamográficas
             </p>
           </div>
         </div>
@@ -106,23 +113,19 @@ export default function Result() {
       </section>
 
       <section className="card card-pad" style={{ marginBottom: 24 }}>
-        <h3 className="section-title" style={{ fontSize: 15 }}>Parámetros del estudio</h3>
+        <h3 className="section-title" style={{ fontSize: 15 }}>Datos del estudio</h3>
         <div className="meta-grid">
           <div className="meta-item">
-            <div className="meta-key">Coordenada X</div>
-            <div className="meta-val">{input?.x ?? '—'}</div>
+            <div className="meta-key">Archivo</div>
+            <div className="meta-val" style={{ fontSize: 13 }}>{input?.filename ?? '—'}</div>
           </div>
           <div className="meta-item">
-            <div className="meta-key">Coordenada Y</div>
-            <div className="meta-val">{input?.y ?? '—'}</div>
+            <div className="meta-key">Formato</div>
+            <div className="meta-val">{input?.mimeType ?? '—'}</div>
           </div>
           <div className="meta-item">
-            <div className="meta-key">Radio de la lesión</div>
-            <div className="meta-val">{input?.radius ?? '—'}</div>
-          </div>
-          <div className="meta-item">
-            <div className="meta-key">Tipo de tejido</div>
-            <div className="meta-val">{input?.bg_type ?? '—'}</div>
+            <div className="meta-key">Tamaño</div>
+            <div className="meta-val">{formatFileSize(input?.sizeBytes)}</div>
           </div>
           <div className="meta-item">
             <div className="meta-key">Paciente</div>
